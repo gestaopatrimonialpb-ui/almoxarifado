@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Almoxarifado — Controle de Empenhos</title>
+<!-- PWA -->
+<meta name="application-name" content="Almoxarifado">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Almoxarifado">
+<meta name="theme-color" content="#1A3C6E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="Sistema de Controle de Empenhos do Almoxarifado">
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --azul:    #1A3C6E;
+    --azul-md: #2563A8;
+    --azul-lt: #D6E4F7;
+    --verde:   #1A4731;
+    --verde-lt:#D4EDDA;
+    --ambar:   #C87A00;
+    --ambar-lt:#FFF3CD;
+    --verm:    #C0392B;
+    --verm-lt: #FDECEA;
+    --cinza:   #F4F6F9;
+    --cinza-2: #E8EBF1;
+    --cinza-3: #BCC3CE;
+    --txt:     #1C2333;
+    --txt-2:   #4A556B;
+    --branco:  #FFFFFF;
+    --mono:    'IBM Plex Mono', monospace;
+    --sans:    'IBM Plex Sans', sans-serif;
+    --radius:  6px;
+    --shadow:  0 2px 12px rgba(26,60,110,0.10);
+    --shadow-lg: 0 8px 32px rgba(26,60,110,0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); background: var(--cinza); color: var(--txt); min-height: 100vh; font-size: 13px; }
+
+  /* HEADER */
+  header {
+    background: var(--azul); color: #fff;
+    padding: 0 28px; display: flex; align-items: center;
+    justify-content: space-between; height: 56px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo-badge {
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 4px; padding: 4px 10px; font-family: var(--mono);
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .btn-header {
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.22);
+    color: #fff; border-radius: var(--radius); padding: 6px 14px;
+    font-size: 12px; cursor: pointer; font-family: var(--sans);
+    transition: background .15s; display: flex; align-items: center; gap: 6px;
+  }
+  .btn-header:hover { background: rgba(255,255,255,0.22); }
+
+  /* STATUS SYNC */
+  .sync-status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; opacity: .8; font-family: var(--mono);
+  }
+  .sync-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ade80; box-shadow: 0 0 6px #4ade80;
+    animation: pulse 2s infinite;
+  }
+  .sync-dot.off { background: var(--cinza-3); box-shadow: none; animation: none; }
+  .sync-dot.loading { background: var(--ambar); box-shadow: 0 0 6px var(--ambar); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ABAS */
+  .tabs {
+    background: var(--azul); padding: 0 28px; display: flex;
+    border-bottom: 2px solid rgba(255,255,255,0.08);
+  }
+  .tab {
+    color: rgba(255,255,255,0.6); padding: 10px 20px; font-size: 12px;
+    font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent;
+    margin-bottom: -2px; transition: all .15s; letter-spacing: 0.3px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { color: rgba(255,255,255,.88); }
+  .tab.active { color: #fff; border-bottom-color: #fff; }
+
+  /* MAIN */
+  .main { padding: 24px 28px; max-width: 1600px; margin: 0 auto; }
+
+  /* LOADING OVERLAY */
+  .loading-overlay {
+    position: fixed; inset: 0; background: rgba(26,60,110,0.55);
+    z-index: 300; display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); flex-direction: column; gap: 16px;
+  }
+  .loading-overlay.hidden { display: none; }
+  .spinner {
+    width: 44px; height: 44px; border: 4px solid rgba(255,255,255,0.2);
+    border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-overlay p { color: #fff; font-size: 14px; font-weight: 600; }
+
+  /* CARDS */
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px; margin-bottom: 22px;
+  }
+  .card {
+    background: var(--branco); border-radius: var(--radius);
+    padding: 16px 18px; border-left: 4px solid var(--azul-md);
+    box-shadow: var(--shadow); transition: box-shadow .15s;
+  }
+  .card:hover { box-shadow: var(--shadow-lg); }
+  .card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--txt-2); font-weight: 600; }
+  .card .value { font-family: var(--mono); font-size: 26px; font-weight: 600; margin-top: 4px; color: var(--azul); }
+  .card.verde   { border-left-color: var(--verde);   } .card.verde .value   { color: var(--verde);   }
+  .card.verm    { border-left-color: var(--verm);    } .card.verm .value    { color: var(--verm);    }
+  .card.ambar   { border-left-color: var(--ambar);   } .card.ambar .value   { color: var(--ambar);   }
+  .card.azul-md { border-left-color: var(--azul-md); } .card.azul-md .value { color: var(--azul-md); }
+  .progress-bar { height: 5px; background: var(--cinza-2); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+
+  /* TOOLBAR */
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .toolbar-title { font-weight: 700; font-size: 14px; color: var(--azul); flex: 1; }
+  .btn {
+    border: none; border-radius: var(--radius); padding: 8px 16px;
+    font-size: 12px; font-family: var(--sans); cursor: pointer;
+    font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all .15s;
+  }
+  .btn-primary { background: var(--azul-md); color: #fff; }
+  .btn-primary:hover { background: var(--azul); }
+  .btn-success { background: var(--verde); color: #fff; }
+  .btn-outline { background: var(--branco); color: var(--azul-md); border: 1px solid var(--cinza-3); }
+  .btn-outline:hover { background: var(--azul-lt); }
+
+  /* FILTROS */
+  .filter-bar {
+    background: var(--branco); border-radius: var(--radius);
+    padding: 16px 20px; margin-bottom: 16px; box-shadow: var(--shadow);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px; align-items: end;
+  }
+  .filter-group label {
+    display: block; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px; color: var(--txt-2); margin-bottom: 5px;
+  }
+  .filter-group input, .filter-group select {
+    width: 100%; padding: 7px 10px; border: 1.5px solid var(--cinza-2);
+    border-radius: var(--radius); font-family: var(--sans); font-size: 12px;
+    color: var(--txt); background: var(--cinza); transition: border-color .15s; outline: none;
+  }
+  .filter-group input:focus, .filter-group select:focus { border-color: var(--azul-md); background: #fff; }
+
+  /* TABELA */
+  .table-wrap { background: var(--branco); border-radius: var(--radius); box-shadow: var(--shadow); overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th {
+    background: var(--azul); color: #fff; padding: 10px 12px;
+    text-align: center; font-weight: 600; font-size: 11px;
+    letter-spacing: 0.3px; white-space: nowrap; position: sticky; top: 0; z-index: 2;
+  }
+  thead th:first-child { text-align: left; }
+  tbody tr { border-bottom: 1px solid var(--cinza-2); transition: background .1s; }
+  tbody tr:hover { background: var(--azul-lt) !important; }
+  tbody tr:nth-child(even) { background: var(--cinza); }
+  tbody tr:nth-child(odd)  { background: var(--branco); }
+  td { padding: 9px 12px; vertical-align: middle; color: var(--txt); }
+  td:not(:first-child):not(:nth-child(2)):not(:nth-child(3)):not(:nth-child(4)) { text-align: center; }
+
+  /* BADGES */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; border-radius: 20px;
+    padding: 3px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;
+  }
+  .badge-concluido   { background: var(--verde-lt); color: var(--verde);   }
+  .badge-recebimento { background: var(--verm-lt);  color: var(--verm);    }
+  .badge-tombar      { background: var(--ambar-lt); color: var(--ambar);   }
+  .badge-pgto        { background: var(--ambar-lt); color: var(--ambar);   }
+  .badge-entrega     { background: var(--azul-lt);  color: var(--azul-md); }
+  .badge-sim         { background: var(--verde-lt); color: var(--verde);   font-size: 11px; }
+  .badge-nao         { background: var(--verm-lt);  color: var(--verm);    font-size: 11px; }
+  .badge-parcial     { background: var(--ambar-lt); color: var(--ambar);   font-size: 11px; }
+
+  /* MODAL */
+  .overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(10,20,40,0.55); z-index: 200;
+    align-items: center; justify-content: center; backdrop-filter: blur(3px);
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 10px; width: 92%; max-width: 780px;
+    max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25); animation: slideUp .2s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(24px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+  .modal-header {
+    background: var(--azul); color: #fff; padding: 18px 24px;
+    border-radius: 10px 10px 0 0; display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-header h2 { font-size: 15px; font-weight: 700; }
+  .modal-close { background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; opacity: .7; }
+  .modal-close:hover { opacity: 1; }
+  .modal-body { padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--cinza-2); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* FORM */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid .full { grid-column: 1/-1; }
+  .form-group label {
+    display: block; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px; color: var(--txt-2); margin-bottom: 5px;
+  }
+  .form-group label span { color: var(--verm); }
+  .form-group input, .form-group select {
+    width: 100%; padding: 9px 12px; border: 1.5px solid var(--cinza-2);
+    border-radius: var(--radius); font-family: var(--sans); font-size: 13px;
+    color: var(--txt); outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  .form-group input:focus, .form-group select:focus {
+    border-color: var(--azul-md); box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+  }
+  .form-section {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--azul-md); border-bottom: 2px solid var(--azul-lt);
+    padding-bottom: 6px; margin: 20px 0 14px; grid-column: 1/-1;
+  }
+
+  /* PAINEL CHEFIA */
+  .chefia-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .chefia-card { background: var(--branco); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .chefia-card-header {
+    padding: 12px 16px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;
+  }
+  .chefia-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 16px; border-bottom: 1px solid var(--cinza-2); font-size: 12px;
+  }
+  .chefia-item:last-child { border-bottom: none; }
+  .chefia-item .val { font-family: var(--mono); font-weight: 600; color: var(--azul-md); }
+
+  /* EMPTY / TOAST */
+  .empty { text-align: center; padding: 48px 20px; color: var(--txt-2); }
+  .empty .icon { font-size: 36px; margin-bottom: 10px; }
+  #toast {
+    position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+    background: var(--verde); color: #fff; padding: 12px 22px;
+    border-radius: var(--radius); font-size: 13px; font-weight: 600;
+    box-shadow: var(--shadow-lg); transform: translateY(20px); opacity: 0;
+    transition: all .25s ease; pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.error { background: var(--verm); }
+
+  .row-actions { display: flex; gap: 5px; justify-content: center; }
+  .btn-icon { background: none; border: none; cursor: pointer; font-size: 14px; padding: 3px 6px; border-radius: 4px; transition: background .1s; }
+  .btn-icon:hover { background: var(--cinza-2); }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--cinza); }
+  ::-webkit-scrollbar-thumb { background: var(--cinza-3); border-radius: 4px; }
+
+  @media (max-width: 768px) {
+    .main { padding: 16px; }
+    .chefia-grid { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid .full { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay hidden" id="loading-overlay">
+  <div class="spinner"></div>
+  <p id="loading-msg">Carregando dados...</p>
+</div>
+
+<header>
+  <div class="header-left">
+    <div class="logo-badge">ALMO</div>
+    <div>
+      <div style="font-weight:700;font-size:15px;">Controle de Empenhos</div>
+      <div style="font-size:11px;opacity:.6;font-weight:300;">Sistema de Gestão do Almoxarifado</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="sync-status">
+      <div class="sync-dot off" id="sync-dot"></div>
+      <span id="sync-label">Conectando...</span>
+    </div>
+    <button class="btn-header" onclick="carregarDados()">↻ Sincronizar</button>
+    <button class="btn-header" onclick="exportarCSV()">⬇ CSV</button>
+    <button class="btn-header" onclick="setTab('painel')">👁 Chefia</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="setTab('controle')" id="tab-controle">📋 Controle de Empenhos</div>
+  <div class="tab" onclick="setTab('consulta')" id="tab-consulta">🔍 Consulta</div>
+  <div class="tab" onclick="setTab('painel')" id="tab-painel">📊 Painel / Chefia</div>
+</div>
+
+<div class="main">
+
+  <!-- ABA CONTROLE -->
+  <div id="view-controle">
+    <div class="summary-grid" id="summary-cards"></div>
+    <div class="toolbar">
+      <div class="toolbar-title">Empenhos Cadastrados</div>
+      <button class="btn btn-primary" onclick="abrirModal()">＋ Novo Empenho</button>
+      <button class="btn btn-outline" onclick="carregarDados()">↻ Atualizar</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Nº Empenho</th><th>Data</th><th>Fornecedor</th><th>Descrição</th>
+          <th>Valor (R$)</th><th>Prazo</th><th>Recebido?</th><th>Tombado?</th>
+          <th>Pgto Form.?</th><th>Entregue?</th><th>Status</th><th>Ações</th>
+        </tr></thead>
+        <tbody id="tbody-controle"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ABA CONSULTA -->
+  <div id="view-consulta" style="display:none">
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>🔍 Nº Empenho</label>
+        <input type="text" id="f-numero" placeholder="Ex.: 2024NE000123" oninput="filtrar()">
+      </div>
+      <div class="filter-group">
+        <label>🏢 Fornecedor</label>
+        <input type="text" id="f-fornecedor" placeholder="Nome parcial..." oninput="filtrar()">
+      </div>
+      <div class="filter-group">
+        <label>📦 Material</label>
+        <input type="text" id="f-material" placeholder="Descrição..." oninput="filtrar()">
+      </div>
+      <div class="filter-group">
+        <label>📊 Status</label>
+        <select id="f-status" onchange="filtrar()">
+          <option value="">(Todos)</option>
+          <option value="concluido">✅ Concluído</option>
+          <option value="recebimento">⚠ Aguardando Recebimento</option>
+          <option value="tombar">📋 Falta Tombar</option>
+          <option value="pgto">📄 Falta Formalizar Pgto</option>
+          <option value="entrega">🚚 Falta Entregar</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>📅 Data De</label>
+        <input type="date" id="f-data-de" onchange="filtrar()">
+      </div>
+      <div class="filter-group">
+        <label>📅 Data Até</label>
+        <input type="date" id="f-data-ate" onchange="filtrar()">
+      </div>
+      <div class="filter-group">
+        <label>💰 Valor Mín. (R$)</label>
+        <input type="number" id="f-valor-min" placeholder="0,00" oninput="filtrar()">
+      </div>
+      <div class="filter-group" style="display:flex;align-items:flex-end;">
+        <button class="btn btn-outline" style="width:100%" onclick="limparFiltros()">✕ Limpar</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="toolbar-title" id="resultado-count">Resultados: —</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Nº Empenho</th><th>Data</th><th>Fornecedor</th><th>Descrição</th>
+          <th>Valor (R$)</th><th>Prazo</th><th>Recebido?</th><th>Tombado?</th>
+          <th>Pgto Form.?</th><th>Entregue?</th><th>Status</th>
+        </tr></thead>
+        <tbody id="tbody-consulta"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ABA PAINEL -->
+  <div id="view-painel" style="display:none">
+    <div class="summary-grid" id="painel-cards"></div>
+    <div class="chefia-grid">
+      <div class="chefia-card">
+        <div class="chefia-card-header" style="background:var(--verm-lt);color:var(--verm);">⚠ Prazo Vencido / Crítico</div>
+        <div id="lista-criticos"></div>
+      </div>
+      <div class="chefia-card">
+        <div class="chefia-card-header" style="background:var(--ambar-lt);color:var(--ambar);">📋 Aguardando Ação Interna</div>
+        <div id="lista-acoes"></div>
+      </div>
+      <div class="chefia-card">
+        <div class="chefia-card-header" style="background:var(--azul-lt);color:var(--azul-md);">💰 Maiores Valores</div>
+        <div id="lista-valores"></div>
+      </div>
+      <div class="chefia-card">
+        <div class="chefia-card-header" style="background:var(--verde-lt);color:var(--verde);">✅ Últimos Concluídos</div>
+        <div id="lista-concluidos"></div>
+      </div>
+    </div>
+    <div class="toolbar"><div class="toolbar-title">Visão Gerencial Completa</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Nº Empenho</th><th>Fornecedor</th><th>Valor (R$)</th>
+          <th>Recebido?</th><th>Tombado?</th><th>Pgto Form.?</th>
+          <th>Entregue?</th><th>Status</th><th>Prazo</th>
+        </tr></thead>
+        <tbody id="tbody-painel"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="fecharModalFora(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Novo Empenho</h2>
+      <button class="modal-close" onclick="fecharModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-section">📄 Dados do Empenho</div>
+        <div class="form-group">
+          <label>Nº Empenho <span>*</span></label>
+          <input type="text" id="f-ne" placeholder="2024NE000001">
+        </div>
+        <div class="form-group">
+          <label>Data do Empenho <span>*</span></label>
+          <input type="date" id="f-data-emp">
+        </div>
+        <div class="form-group full">
+          <label>Fornecedor <span>*</span></label>
+          <input type="text" id="f-forn" placeholder="Razão social do fornecedor">
+        </div>
+        <div class="form-group full">
+          <label>Descrição do Material <span>*</span></label>
+          <input type="text" id="f-desc" placeholder="Descrição sucinta do material empenhado">
+        </div>
+        <div class="form-group">
+          <label>Valor (R$) <span>*</span></label>
+          <input type="number" id="f-valor" placeholder="0,00" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>Prazo de Entrega</label>
+          <input type="date" id="f-prazo">
+        </div>
+        <div class="form-group">
+          <label>Qtd. Empenhada</label>
+          <input type="number" id="f-qtd-emp" placeholder="0" min="0">
+        </div>
+        <div class="form-group">
+          <label>Qtd. Recebida</label>
+          <input type="number" id="f-qtd-rec" placeholder="0" min="0">
+        </div>
+        <div class="form-section">🚚 Recebimento</div>
+        <div class="form-group">
+          <label>Recebido?</label>
+          <select id="f-recebido">
+            <option value="Não">Não</option>
+            <option value="Parcial">Parcial</option>
+            <option value="Sim">Sim</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Data de Recebimento</label>
+          <input type="date" id="f-data-rec">
+        </div>
+        <div class="form-section">🏷 Tombamento</div>
+        <div class="form-group">
+          <label>Tombamento Necessário?</label>
+          <select id="f-tomb-nec">
+            <option value="Não">Não (material de consumo)</option>
+            <option value="Sim">Sim (bem patrimonial)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tombado?</label>
+          <select id="f-tombado">
+            <option value="Não">Não</option>
+            <option value="Sim">Sim</option>
+          </select>
+        </div>
+        <div class="form-section">💰 Pagamento e Entrega</div>
+        <div class="form-group">
+          <label>Processo Pgto Formalizado?</label>
+          <select id="f-pgto">
+            <option value="Não">Não</option>
+            <option value="Sim">Sim</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Data Formalização do Pgto</label>
+          <input type="date" id="f-data-pgto">
+        </div>
+        <div class="form-group">
+          <label>Entregue ao Requisitante?</label>
+          <select id="f-entregue">
+            <option value="Não">Não</option>
+            <option value="Sim">Sim</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Data de Entrega</label>
+          <input type="date" id="f-data-ent">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar" onclick="salvarEmpenho()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbzeEafYFQKlIXjEd9ert6ABfnrscjvVsvT7vMmg5FonsPlXH-djCwMmaIIuFFxubJ98Cw/exec';
+
+let EMPENHOS = [];
+let editandoId = null;
+
+// ══════════════════════════════════════════════════════════
+// API
+// ══════════════════════════════════════════════════════════
+function setSyncStatus(estado) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  if (estado === 'ok')      { dot.className='sync-dot';         lbl.textContent='Sincronizado'; }
+  if (estado === 'loading') { dot.className='sync-dot loading'; lbl.textContent='Sincronizando...'; }
+  if (estado === 'erro')    { dot.className='sync-dot off';     lbl.textContent='Sem conexão'; }
+}
+
+function setLoading(show, msg='Carregando dados...') {
+  document.getElementById('loading-overlay').classList.toggle('hidden', !show);
+  document.getElementById('loading-msg').textContent = msg;
+}
+
+async function carregarDados() {
+  setSyncStatus('loading');
+  setLoading(true, 'Carregando dados da planilha...');
+  try {
+    const res = await fetch(API_URL + '?t=' + Date.now());
+    const data = await res.json();
+    EMPENHOS = data.map(e => ({
+      ...e,
+      valor:   parseFloat(e.valor)  || 0,
+      qtdEmp:  parseInt(e.qtdEmp)   || 0,
+      qtdRec:  parseInt(e.qtdRec)   || 0,
+    }));
+    setSyncStatus('ok');
+    renderAll();
+    const tab = document.querySelector('.tab.active')?.id?.replace('tab-','') || 'controle';
+    if (tab === 'consulta') filtrar();
+    if (tab === 'painel')   renderPainel();
+  } catch(err) {
+    setSyncStatus('erro');
+    toast('Erro ao carregar dados. Verifique a conexão.', true);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function apiSave(empenho) {
+  const url = API_URL + '?action=save&data=' + encodeURIComponent(JSON.stringify(empenho));
+  const res = await fetch(url, { redirect: 'follow' });
+  return res.json();
+}
+
+async function apiDelete(id) {
+  const url = API_URL + '?action=delete&id=' + encodeURIComponent(id);
+  const res = await fetch(url, { redirect: 'follow' });
+  return res.json();
+}
+
+// ══════════════════════════════════════════════════════════
+// STATUS
+// ══════════════════════════════════════════════════════════
+function calcStatus(e) {
+  if (e.recebido === 'Não') return 'recebimento';
+  if (e.tombNec  === 'Sim' && e.tombado  === 'Não') return 'tombar';
+  if (e.pgto     === 'Não') return 'pgto';
+  if (e.entregue === 'Não') return 'entrega';
+  return 'concluido';
+}
+const STATUS_LABEL = {
+  recebimento: '⚠ Aguardando Recebimento',
+  tombar:      '📋 Falta Tombar',
+  pgto:        '📄 Falta Formalizar Pgto',
+  entrega:     '🚚 Falta Entregar',
+  concluido:   '✅ Concluído',
+};
+function badgeStatus(st) { return `<span class="badge badge-${st}">${STATUS_LABEL[st]}</span>`; }
+function badgeSN(val) {
+  if (!val || val==='' || val===0) return '—';
+  if (val==='Sim')     return '<span class="badge badge-sim">✓ Sim</span>';
+  if (val==='Não')     return '<span class="badge badge-nao">✗ Não</span>';
+  if (val==='Parcial') return '<span class="badge badge-parcial">~ Parcial</span>';
+  return val;
+}
+function fmtData(d) {
+  if (!d) return '—';
+  const s = String(d);
+  if (s.includes('/')) return s;
+  const [y,m,dd] = s.split('-');
+  if (!dd) return '—';
+  return `${dd}/${m}/${y}`;
+}
+function fmtValor(v) { return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+
+// ══════════════════════════════════════════════════════════
+// CARDS
+// ══════════════════════════════════════════════════════════
+function renderCards(id) {
+  const total = EMPENHOS.length;
+  const c = { recebimento:0, tombar:0, pgto:0, entrega:0, concluido:0 };
+  let vt = 0;
+  EMPENHOS.forEach(e => { c[calcStatus(e)]++; vt += Number(e.valor)||0; });
+  document.getElementById(id).innerHTML = `
+    <div class="card azul-md"><div class="label">Total Empenhos</div><div class="value">${total}</div></div>
+    <div class="card verm"><div class="label">Ag. Recebimento</div><div class="value">${c.recebimento}</div></div>
+    <div class="card ambar"><div class="label">Falta Tombar</div><div class="value">${c.tombar}</div></div>
+    <div class="card ambar"><div class="label">Falta Form. Pgto</div><div class="value">${c.pgto}</div></div>
+    <div class="card azul-md"><div class="label">Falta Entregar</div><div class="value">${c.entrega}</div></div>
+    <div class="card verde">
+      <div class="label">Concluídos</div><div class="value">${c.concluido}</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${total?Math.round(c.concluido/total*100):0}%;background:var(--verde)"></div></div>
+    </div>
+    <div class="card"><div class="label">Valor Total Empenhado</div><div class="value" style="font-size:16px">${fmtValor(vt)}</div></div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════
+// TABELA CONTROLE
+// ══════════════════════════════════════════════════════════
+function renderControle() {
+  renderCards('summary-cards');
+  const tbody = document.getElementById('tbody-controle');
+  if (!EMPENHOS.length) {
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="icon">📭</div><p>Nenhum empenho cadastrado. Clique em "＋ Novo Empenho" para começar.</p></div></td></tr>`;
+    return;
+  }
+  const hoje = new Date().toISOString().split('T')[0];
+  tbody.innerHTML = EMPENHOS.map(e => {
+    const st = calcStatus(e);
+    const prazoVencido = e.prazo && String(e.prazo).slice(0,10) < hoje && e.recebido !== 'Sim';
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--azul)">${e.numero}</td>
+      <td>${fmtData(e.dataEmp)}</td>
+      <td style="text-align:left;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${e.fornecedor}">${e.fornecedor}</td>
+      <td style="text-align:left;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${e.descricao}">${e.descricao}</td>
+      <td style="font-family:var(--mono);font-size:11px">${fmtValor(e.valor)}</td>
+      <td style="${prazoVencido?'color:var(--verm);font-weight:700':''}">${fmtData(e.prazo)}${prazoVencido?' ⚠':''}</td>
+      <td>${badgeSN(e.recebido)}</td>
+      <td>${e.tombNec==='Não'?'<span style="color:var(--cinza-3);font-size:11px">N/A</span>':badgeSN(e.tombado)}</td>
+      <td>${badgeSN(e.pgto)}</td>
+      <td>${badgeSN(e.entregue)}</td>
+      <td>${badgeStatus(st)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-icon" title="Editar" onclick="editarEmpenho('${e.id}')">✏️</button>
+          <button class="btn-icon" title="Excluir" onclick="excluirEmpenho('${e.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// CONSULTA
+// ══════════════════════════════════════════════════════════
+function filtrar() {
+  const num    = document.getElementById('f-numero').value.toLowerCase();
+  const forn   = document.getElementById('f-fornecedor').value.toLowerCase();
+  const mat    = document.getElementById('f-material').value.toLowerCase();
+  const st     = document.getElementById('f-status').value;
+  const dDe    = document.getElementById('f-data-de').value;
+  const dAte   = document.getElementById('f-data-ate').value;
+  const valMin = parseFloat(document.getElementById('f-valor-min').value)||0;
+
+  const res = EMPENHOS.filter(e => {
+    const eData = String(e.dataEmp||'').slice(0,10);
+    if (num    && !String(e.numero||'').toLowerCase().includes(num))       return false;
+    if (forn   && !String(e.fornecedor||'').toLowerCase().includes(forn))  return false;
+    if (mat    && !String(e.descricao||'').toLowerCase().includes(mat))    return false;
+    if (st     && calcStatus(e) !== st)                                    return false;
+    if (dDe    && eData < dDe)                                             return false;
+    if (dAte   && eData > dAte)                                            return false;
+    if (valMin && Number(e.valor) < valMin)                                return false;
+    return true;
+  });
+
+  document.getElementById('resultado-count').textContent = `Resultados encontrados: ${res.length}`;
+  const tbody = document.getElementById('tbody-consulta');
+  if (!res.length) {
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="icon">🔍</div><p>Nenhum empenho encontrado.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = res.map(e => {
+    const st2 = calcStatus(e);
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--azul)">${e.numero}</td>
+      <td>${fmtData(e.dataEmp)}</td>
+      <td style="text-align:left">${e.fornecedor}</td>
+      <td style="text-align:left">${e.descricao}</td>
+      <td style="font-family:var(--mono);font-size:11px">${fmtValor(e.valor)}</td>
+      <td>${fmtData(e.prazo)}</td>
+      <td>${badgeSN(e.recebido)}</td>
+      <td>${e.tombNec==='Não'?'<span style="color:var(--cinza-3);font-size:11px">N/A</span>':badgeSN(e.tombado)}</td>
+      <td>${badgeSN(e.pgto)}</td>
+      <td>${badgeSN(e.entregue)}</td>
+      <td>${badgeStatus(st2)}</td>
+    </tr>`;
+  }).join('');
+}
+function limparFiltros() {
+  ['f-numero','f-fornecedor','f-material','f-data-de','f-data-ate','f-valor-min'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-status').value='';
+  filtrar();
+}
+
+// ══════════════════════════════════════════════════════════
+// PAINEL CHEFIA
+// ══════════════════════════════════════════════════════════
+function renderPainel() {
+  renderCards('painel-cards');
+  const hoje = new Date().toISOString().split('T')[0];
+  const criticos  = EMPENHOS.filter(e => e.recebido !== 'Sim' && e.prazo && String(e.prazo).slice(0,10) < hoje);
+  const acoes     = EMPENHOS.filter(e => { const s=calcStatus(e); return s==='tombar'||s==='pgto'; });
+  const porValor  = [...EMPENHOS].sort((a,b)=>Number(b.valor)-Number(a.valor)).slice(0,5);
+  const concluidos= EMPENHOS.filter(e=>calcStatus(e)==='concluido').slice(-5).reverse();
+
+  function item(e, sub='') {
+    return `<div class="chefia-item">
+      <div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--azul);font-weight:600">${e.numero}</div>
+        <div style="color:var(--txt-2);font-size:11px;margin-top:2px">${e.fornecedor}</div>
+        ${sub}
+      </div>
+      <div class="val">${fmtValor(e.valor)}</div>
+    </div>`;
+  }
+
+  document.getElementById('lista-criticos').innerHTML   = criticos.length  ? criticos.map(e=>item(e,`<div style="color:var(--verm);font-size:10px;margin-top:2px">Prazo: ${fmtData(e.prazo)}</div>`)).join('') : '<div class="chefia-item" style="color:var(--verde);font-style:italic">Nenhum prazo vencido 🎉</div>';
+  document.getElementById('lista-acoes').innerHTML      = acoes.length     ? acoes.map(e=>item(e,`<div style="color:var(--ambar);font-size:10px;margin-top:2px">${STATUS_LABEL[calcStatus(e)]}</div>`)).join('') : '<div class="chefia-item" style="color:var(--verde);font-style:italic">Nenhuma ação pendente 🎉</div>';
+  document.getElementById('lista-valores').innerHTML    = porValor.length  ? porValor.map(e=>item(e,`<div style="font-size:10px;margin-top:2px">${badgeStatus(calcStatus(e))}</div>`)).join('') : '<div class="chefia-item" style="font-style:italic">Sem dados.</div>';
+  document.getElementById('lista-concluidos').innerHTML = concluidos.length? concluidos.map(e=>item(e)).join('') : '<div class="chefia-item" style="font-style:italic">Nenhum concluído ainda.</div>';
+
+  const tbody = document.getElementById('tbody-painel');
+  tbody.innerHTML = EMPENHOS.map(e => {
+    const st = calcStatus(e);
+    const pv = e.prazo && String(e.prazo).slice(0,10) < hoje && e.recebido !== 'Sim';
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--azul)">${e.numero}</td>
+      <td style="text-align:left">${e.fornecedor}</td>
+      <td style="font-family:var(--mono);font-size:11px">${fmtValor(e.valor)}</td>
+      <td>${badgeSN(e.recebido)}</td>
+      <td>${e.tombNec==='Não'?'<span style="color:var(--cinza-3);font-size:11px">N/A</span>':badgeSN(e.tombado)}</td>
+      <td>${badgeSN(e.pgto)}</td>
+      <td>${badgeSN(e.entregue)}</td>
+      <td>${badgeStatus(st)}</td>
+      <td style="${pv?'color:var(--verm);font-weight:700':''}">${fmtData(e.prazo)}${pv?' ⚠':''}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════════════════
+function abrirModal(id=null) {
+  editandoId = id;
+  document.getElementById('modal-title').textContent = id ? 'Editar Empenho' : 'Novo Empenho';
+  if (id) {
+    const e = EMPENHOS.find(x => String(x.id)===String(id));
+    if (!e) return;
+    document.getElementById('f-ne').value        = e.numero     ||'';
+    document.getElementById('f-data-emp').value  = String(e.dataEmp||'').slice(0,10);
+    document.getElementById('f-forn').value       = e.fornecedor ||'';
+    document.getElementById('f-desc').value       = e.descricao  ||'';
+    document.getElementById('f-valor').value      = e.valor      ||'';
+    document.getElementById('f-prazo').value      = String(e.prazo||'').slice(0,10);
+    document.getElementById('f-qtd-emp').value    = e.qtdEmp     ||'';
+    document.getElementById('f-qtd-rec').value    = e.qtdRec     ||'';
+    document.getElementById('f-recebido').value   = e.recebido   ||'Não';
+    document.getElementById('f-data-rec').value   = String(e.dataRec||'').slice(0,10);
+    document.getElementById('f-tomb-nec').value   = e.tombNec    ||'Não';
+    document.getElementById('f-tombado').value    = e.tombado    ||'Não';
+    document.getElementById('f-pgto').value       = e.pgto       ||'Não';
+    document.getElementById('f-data-pgto').value  = String(e.dataPgto||'').slice(0,10);
+    document.getElementById('f-entregue').value   = e.entregue   ||'Não';
+    document.getElementById('f-data-ent').value   = String(e.dataEnt||'').slice(0,10);
+  } else {
+    ['f-ne','f-data-emp','f-forn','f-desc','f-valor','f-prazo','f-qtd-emp','f-qtd-rec',
+     'f-data-rec','f-data-pgto','f-data-ent'].forEach(i=>document.getElementById(i).value='');
+    ['f-recebido','f-tomb-nec','f-tombado','f-pgto','f-entregue'].forEach(i=>document.getElementById(i).value='Não');
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+function fecharModal() { document.getElementById('overlay').classList.remove('open'); editandoId=null; }
+function fecharModalFora(e) { if(e.target.id==='overlay') fecharModal(); }
+
+async function salvarEmpenho() {
+  const numero     = document.getElementById('f-ne').value.trim();
+  const dataEmp    = document.getElementById('f-data-emp').value;
+  const fornecedor = document.getElementById('f-forn').value.trim();
+  const descricao  = document.getElementById('f-desc').value.trim();
+  const valor      = parseFloat(document.getElementById('f-valor').value)||0;
+  if (!numero||!dataEmp||!fornecedor||!descricao||!valor) { toast('Preencha os campos obrigatórios.',true); return; }
+
+  const empenho = {
+    id:        editandoId || Date.now(),
+    numero, dataEmp, fornecedor, descricao, valor,
+    prazo:     document.getElementById('f-prazo').value,
+    qtdEmp:    parseInt(document.getElementById('f-qtd-emp').value)||0,
+    qtdRec:    parseInt(document.getElementById('f-qtd-rec').value)||0,
+    recebido:  document.getElementById('f-recebido').value,
+    dataRec:   document.getElementById('f-data-rec').value,
+    tombNec:   document.getElementById('f-tomb-nec').value,
+    tombado:   document.getElementById('f-tombado').value,
+    pgto:      document.getElementById('f-pgto').value,
+    dataPgto:  document.getElementById('f-data-pgto').value,
+    entregue:  document.getElementById('f-entregue').value,
+    dataEnt:   document.getElementById('f-data-ent').value,
+  };
+
+  const btn = document.getElementById('btn-salvar');
+  btn.disabled = true; btn.textContent = '⏳ Salvando...';
+  setLoading(true, 'Salvando na planilha...');
+
+  try {
+    await apiSave(empenho);
+    toast(editandoId ? 'Empenho atualizado!' : 'Empenho cadastrado!');
+    fecharModal();
+    await carregarDados();
+  } catch {
+    toast('Erro ao salvar. Tente novamente.', true);
+  } finally {
+    btn.disabled=false; btn.textContent='💾 Salvar';
+    setLoading(false);
+  }
+}
+
+async function editarEmpenho(id) { abrirModal(id); }
+
+async function excluirEmpenho(id) {
+  if (!confirm('Confirma a exclusão deste empenho?\nEsta ação não pode ser desfeita.')) return;
+  setLoading(true, 'Excluindo...');
+  try {
+    await apiDelete(id);
+    toast('Empenho excluído.');
+    await carregarDados();
+  } catch {
+    toast('Erro ao excluir.', true);
+  } finally { setLoading(false); }
+}
+
+// ══════════════════════════════════════════════════════════
+// ABAS
+// ══════════════════════════════════════════════════════════
+function setTab(tab) {
+  ['controle','consulta','painel'].forEach(t=>{
+    document.getElementById(`view-${t}`).style.display = t===tab?'block':'none';
+    document.getElementById(`tab-${t}`).classList.toggle('active', t===tab);
+  });
+  if (tab==='consulta') filtrar();
+  if (tab==='painel')   renderPainel();
+}
+
+// ══════════════════════════════════════════════════════════
+// EXPORTAR CSV
+// ══════════════════════════════════════════════════════════
+function exportarCSV() {
+  const cols = ['Nº Empenho','Data','Fornecedor','Descrição','Valor','Prazo','Qtd Emp','Qtd Rec',
+                'Recebido?','Data Rec.','Tomb.Nec.?','Tombado?','Pgto Form.?','Data Pgto','Entregue?','Data Ent.','Status'];
+  const rows = EMPENHOS.map(e=>[
+    e.numero,e.dataEmp,e.fornecedor,e.descricao,e.valor,e.prazo,
+    e.qtdEmp,e.qtdRec,e.recebido,e.dataRec,e.tombNec,e.tombado,
+    e.pgto,e.dataPgto,e.entregue,e.dataEnt,STATUS_LABEL[calcStatus(e)]
+  ].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(';'));
+  const csv=[cols.join(';'),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download=`empenhos_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  toast('CSV exportado!');
+}
+
+// ══════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════
+let toastTimer;
+function toast(msg,error=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='show'+(error?' error':'');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className='',3200);
+}
+
+// ══════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════
+function renderAll(){ renderControle(); }
+carregarDados();
+
+// ══════════════════════════════════════════════════════════
+// SERVICE WORKER (PWA)
+// ══════════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
