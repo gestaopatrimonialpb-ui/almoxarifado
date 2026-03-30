@@ -1,8 +1,9 @@
 {
-  "name": "Almoxarifado — Controle de Empenhos",
-  "short_name": "Almoxarifado",
-  "description": "Sistema de Controle de Empenhos do Almoxarifado",
-  "start_url": "/almoxarifado/",
+  "name": "SIGLOG — Sistema de Logística de Materiais",
+  "short_name": "SIGLOG",
+  "description": "Sistema de Gestão de Almoxarifado, Patrimônio e Reserva Técnica — UFPB",
+  "start_url": "/almoxarifado/index.html",
+  "scope": "/almoxarifado/",
   "display": "standalone",
   "background_color": "#1A3C6E",
   "theme_color": "#1A3C6E",
@@ -10,31 +11,37 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%231A3C6E'/><text y='130' x='96' text-anchor='middle' font-size='110'>📦</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%231A3C6E'/><text y='110' x='96' text-anchor='middle' font-size='80'>📦</text><text y='155' x='96' text-anchor='middle' font-size='28' fill='white' font-family='Arial' font-weight='bold'>SIGLOG</text></svg>",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%231A3C6E'/><text y='360' x='256' text-anchor='middle' font-size='300'>📦</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%231A3C6E'/><text y='280' x='256' text-anchor='middle' font-size='220'>📦</text><text y='420' x='256' text-anchor='middle' font-size='72' fill='white' font-family='Arial' font-weight='bold'>SIGLOG</text></svg>",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "utilities"],
+  "categories": ["productivity", "utilities", "government"],
   "shortcuts": [
     {
-      "name": "Novo Empenho",
-      "short_name": "Novo",
-      "description": "Cadastrar novo empenho",
-      "url": "/almoxarifado/?action=novo"
+      "name": "Almoxarifado",
+      "short_name": "Almox.",
+      "description": "Módulo de controle de empenhos",
+      "url": "/almoxarifado/index.html"
     },
     {
-      "name": "Painel da Chefia",
-      "short_name": "Painel",
-      "description": "Ver painel gerencial",
-      "url": "/almoxarifado/?tab=painel"
+      "name": "Patrimônio",
+      "short_name": "Patrim.",
+      "description": "Módulo de gestão patrimonial",
+      "url": "/almoxarifado/index.html"
+    },
+    {
+      "name": "Reserva Técnica",
+      "short_name": "Reserva",
+      "description": "Módulo de reserva técnica",
+      "url": "/almoxarifado/index.html"
     }
   ]
 }
